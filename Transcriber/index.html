@@ -1,18 +1,64 @@
 <html>
     <head>
 		<script src='https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js'></script>
-        <script type='text/javascript' src='main.js'></script>
-    </head>
+        <script type='text/javascript' src='js/jquery.hotkeys.js'></script>
+        <script type='text/javascript' src='js/jquery-ui.min.js'></script>
+        <script type='text/javascript' src='js/main.js'></script>
+		<link rel="stylesheet" type="text/css" href="css/jquery-ui.min.css">
+		<link rel="stylesheet" type="text/css" href="css/style.css">
+    </head>	
     <body>
-        <input id='file' type='file'><br>
-		<input id='play' type='button' value='Play'/>
-		<input id='pause' type='button' value='Pause' />
-		<input id='stop' type='button' value='Stop' />
-		<input id='next' type='button' value='Next' />
-		
-		<input id='scrubBar' type='range' value='0'/>
-		<input id='timestamp' type='text' /><br>
+        <input id='file' type='file'><br><br>
+		<table id='player'>
+			<tr>
+				<td style="width:1*">
+					<div id='scrubBar'></div>
+				</td>
+				<td style="width:1%; text-align:right">
+						<input id='timestamp' type='text'/>
+				</td>
+			</tr>
+			<tr>
+				<td>
+					<div id='controlButtons'>
+						<button id='play'>Play</button>
+						<button id='pause'>Pause</button>
+						<button id='stop'>Stop</button>
+						<!--button id='prev'>Prev</button-->
+						<button id='replay'>Replay last split</button>
+						<button id='next'>Play next split</button>
+					</div>
+				</td>
+				<td>
+					<div id='seekButtons'>
+						<button id='prev30s'>Rewind 30 seconds</button>
+						<button id='prev5s'>Rewind 5 seconds</button>
+						<button id='skip5s'>Fast-forward 5 seconds</button>
+						<button id='skip30s'>Fast-forward 30 seconds</button>
+					</div>
+				</td>
+			</tr>
+		</table>
         <br>
-        <textarea rows='40' cols='150'></textarea>
+		<table id='transcribe'>
+			<tr>
+				<td style="width:1*">
+					<textarea id='textArea' rows='40' cols='150'></textarea>
+				</td>
+				<td style="width:120px">
+					<div>
+						Hotkeys<br>
+						<br>
+						Ctrl+J - replay last split<br>
+						Ctrl+K - play next split<br>
+						Ctrl+Y - rewind 30s<br>
+						Ctrl+U - rewind 5s<br>
+						Ctrl+I - fast-forward 5s<br>
+						Ctrl+O - fast-forward 30s<br>
+						Ctrl+P - play/pause<br>
+					</div>
+				</td>
+			</tr>
+		</table>
     </body>
 </html>

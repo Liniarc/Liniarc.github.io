@@ -1,0 +1,60 @@
+ html; body {
+    width: 100%;
+    height: 100%;
+    margin: 5px;
+	text-align:center;
+    font-size: 10px;
+    background-color:#D0D0D0;
+}
+
+#player {
+	margin: auto;
+    width:90%;
+    border-style: solid;
+    border-width: thin;
+	padding: 5px;
+    background-color:#555555;	
+    font-size: 10px;
+}
+
+#scrubBar {
+    width:auto;
+	overflow:hidden;
+}
+#timestamp {
+	width:118px;
+	margin: auto 1px;
+    float:right;
+	font : inherit;
+	color : inherit;
+	text-align : left;
+	outline : none;
+	cursor : text;
+}
+
+#controlButtons{
+	float: left;
+}
+#seekButtons{
+	float: right;
+}
+
+#transcribe {
+	margin: auto;
+    width:90%;
+	padding: 5px;	
+    font-size: 11px;
+}
+
+#textArea {
+	width:100%;
+}
+
+.ui-button {
+	padding-top: 1px;
+	padding-bottom: 1px;
+}
+
+.ui-slider-handle {
+	display:none
+}
