@@ -1,11 +1,12 @@
-var SAMPLE_RATE = 44100; //samples per second
-var SAMPLE_SIZE = 2; //sample size in bytes
+var sample_rate = 44100; //samples per second
+var sample_size = 2; //sample size in bytes
+var channels = 1; // num channels
 
 var file;
 var bufferStartPosition = 0;
 var playerPosition = 0;
 var audioStartPosition = 0;
-var maxSplit=SAMPLE_RATE*SAMPLE_SIZE*30;
+var maxSplit=sample_rate*sample_size*channels*30;
 
 $(document).ready(function(){
 	
@@ -39,14 +40,25 @@ $(document).ready(function(){
 	var rawBuffer = new Int16Array(0);
 	var playReader = new FileReader();
 	playReader.onload = function(e){
-	
+
 		newBuffer = new Int16Array(e.target.result);
 		temp = rawBuffer;
 		rawBuffer = new Int16Array(rawBuffer.length + newBuffer.length);
 		rawBuffer.set(temp);
 		rawBuffer.set(newBuffer, temp.length);
-		
 	};	
+	
+	var playbackDataReader = new FileReader();
+	playbackDataReader.onload = function(e){
+		dataBuffer = new Int16Array(e.target.result);
+		
+		sample_rate = (dataBuffer[12]<0?dataBuffer[12]+65536:dataBuffer[12])+(dataBuffer[13]<0?dataBuffer[13]+65536:dataBuffer[13])*65536;
+		channels = dataBuffer[11];
+		sample_size = dataBuffer[17]/8;
+		
+		scrubBar.slider( "option", 'max', file.size/sample_size/channels);
+		maxSplit=sample_rate*sample_size*channels*30;
+	}
 	
 	var openFile = function (event) {
 		bufferStartPosition = 0;
@@ -56,7 +68,7 @@ $(document).ready(function(){
 		
 		if (file != null && file.size > 0)
 		{
-			scrubBar.slider( "option", 'max', file.size/SAMPLE_SIZE);
+			getPlaybackData();
 			load();
 			buffer();
 		}
@@ -172,8 +184,8 @@ $(document).ready(function(){
 		playerPosition = parseInt(position);
 		if (playerPosition < 0)
 			playerPosition = 0;
-		if (playerPosition >= file.size/SAMPLE_SIZE)
-			playerPosition = file.size/SAMPLE_SIZE-1;
+		if (playerPosition >= file.size/sample_size/channels)
+			playerPosition = file.size/sample_size/channels-1;
 		bufferStartPosition = playerPosition;
 		scrubBar.slider( "option", "value", playerPosition);
 		updateTimestamp(playerPosition);
@@ -184,14 +196,14 @@ $(document).ready(function(){
 		isSeeking = false;
 		if (playingCont)
 		{
-			audioStartPosition = context.currentTime - (bufferStartPosition/SAMPLE_RATE);
+			audioStartPosition = context.currentTime - (bufferStartPosition/sample_rate);
 			setTimeout( function(){
 				playContSound();
 			}, 100);
 		}
 		else if (playingSplit)
 		{
-			audioStartPosition = context.currentTime - (bufferStartPosition/SAMPLE_RATE);
+			audioStartPosition = context.currentTime - (bufferStartPosition/sample_rate);
 			setTimeout( function(){
 				playSplitSound();
 			}, 100);
@@ -211,7 +223,7 @@ $(document).ready(function(){
 	
 	function load(position)
 	{
-		var readerPosition = typeof position !== 'undefined' ? position*SAMPLE_SIZE : 0;
+		var readerPosition = typeof position !== 'undefined' ? position*sample_size*channels : 0;
 		blobQueue = [];
 		rawBuffer = new Int16Array(0);
 		console.log("Pushed at" + readerPosition);
@@ -222,6 +234,20 @@ $(document).ready(function(){
 			readerPosition+=maxSplit;
 		}
 		blobQueue.push(file.slice(readerPosition));		
+	}
+	
+	function getPlaybackData()
+	{
+		playbackDataReader.readAsArrayBuffer(file.slice(0,36));
+	}
+		
+	function buffer()
+	{
+		if (blobQueue.length > 0)
+		{
+			if (rawBuffer.length < maxSplit*sample_rate && blobQueue.length > 0) //Do we need to buffer more?
+				playReader.readAsArrayBuffer(blobQueue.shift());
+		}
 	}
 	
 	function haltAudio()
@@ -235,16 +261,7 @@ $(document).ready(function(){
 			source.stop();
 		}
 	}
-	
-	function buffer()
-	{
-		if (blobQueue.length > 0)
-		{
-			if (rawBuffer.length < maxSplit*SAMPLE_RATE && blobQueue.length > 0) //Do we need to buffer more?
-				playReader.readAsArrayBuffer(blobQueue.shift());
-		}
-	}
-	
+
 	function playContSound(){
 		if (rawBuffer.length == 0) //Done with file
 		{
@@ -252,11 +269,11 @@ $(document).ready(function(){
 			return;
 		}
 		playingCont = true;
-		var audioBuffer = context.createBuffer(1,rawBuffer.length,SAMPLE_RATE);
+		var audioBuffer = context.createBuffer(1,rawBuffer.length/channels,sample_rate);
 		var channelBuffer = audioBuffer.getChannelData(0);
 		var splitEnd = rawBuffer.length;
 		for (var i = 0; i < splitEnd; i++) {
-			channelBuffer[i] = rawBuffer[i]/32768;
+			channelBuffer[i] = rawBuffer[i*channels]/32768;
 		}
 		rawBuffer = new Int16Array(0);
 		buffer();
@@ -265,13 +282,15 @@ $(document).ready(function(){
 	};
 	
 	function playSplitSound(){
+		if (rawBuffer.length == 0)
+			return;
 		playingSplit = true;
 		var splitEnd = 0;
 		var silence = 0;
 		var content = 0;
-		while (splitEnd < rawBuffer.length && silence < silentFrames)
+		while (splitEnd*channels < rawBuffer.length && silence < silentFrames)
 		{
-			if (Math.abs(rawBuffer[splitEnd]) < silenceThreshold)
+			if (Math.abs(rawBuffer[splitEnd*channels]) < silenceThreshold)
 			{
 				if (content > contentFrames)
 					silence++;
@@ -281,15 +300,15 @@ $(document).ready(function(){
 				content++;
 				silence = 0;
 			}
-			splitEnd++;
+			splitEnd+=channels;
 		}
-		var audioBuffer = context.createBuffer(1,splitEnd,SAMPLE_RATE);
+		var audioBuffer = context.createBuffer(1,splitEnd,sample_rate);
 		var channelBuffer = audioBuffer.getChannelData(0);
 		for (var i = 0; i < splitEnd; i++) {
-			channelBuffer[i] = rawBuffer[i]/32768;
+			channelBuffer[i] = rawBuffer[i*channels]/32768;
 		}
 		
-		rawBuffer = rawBuffer.slice(splitEnd);
+		rawBuffer = rawBuffer.slice(splitEnd*channels);
 		buffer();
 		
 		bufferStartPosition += splitEnd;
@@ -311,7 +330,7 @@ $(document).ready(function(){
 			haltAudio();
 			if (typeof onFinishedFunction !== 'undefined')
 				onFinishedFunction();
-		}, audioBuffer.length*1000/SAMPLE_RATE); 
+		}, audioBuffer.length*1000/sample_rate); 
 	}
 		
 	
@@ -342,7 +361,7 @@ $(document).ready(function(){
 				
 				if (!isSeeking)
 				{
-					playerPosition = Math.round((context.currentTime - audioStartPosition)*SAMPLE_RATE);
+					playerPosition = Math.round((context.currentTime - audioStartPosition)*sample_rate);
 					scrubBar.slider( "option", "value", playerPosition );
 					updateTimestamp(playerPosition);
 				}
@@ -351,17 +370,17 @@ $(document).ready(function(){
 			{
 				playButton.show();
 				pauseButton.hide();
-				audioStartPosition = context.currentTime - (bufferStartPosition/SAMPLE_RATE);
+				audioStartPosition = context.currentTime - (bufferStartPosition/sample_rate);
 			}
 		}
 	};
 	
 	function updateTimestamp(position)
 	{
-		var ms = ('000' + Math.floor((position/SAMPLE_RATE*1000)%1000)).slice(-3);
-		var secs = ('00'+Math.floor((position/SAMPLE_RATE)%60)).slice(-2);
-		var mins = ('00'+Math.floor((position/SAMPLE_RATE/60)%60)).slice(-2);
-		var hours = Math.floor((position/SAMPLE_RATE/3600));
+		var ms = ('000' + Math.floor((position/sample_rate*1000)%1000)).slice(-3);
+		var secs = ('00'+Math.floor((position/sample_rate)%60)).slice(-2);
+		var mins = ('00'+Math.floor((position/sample_rate/60)%60)).slice(-2);
+		var hours = Math.floor((position/sample_rate/3600));
 
 		timestamp.val(hours + ":" + mins + ":" + secs + "." + ms);
 	}
@@ -374,10 +393,10 @@ $(document).ready(function(){
 	replayButton.on("click", replay);
 	nextButton.on("click", next);
 	
-	prev5sButton.on("click", function(){seek(playerPosition-5*SAMPLE_RATE)});
-	prev30sButton.on("click", function(){seek(playerPosition-30*SAMPLE_RATE)});
-	skip5sButton.on("click", function(){seek(playerPosition+5*SAMPLE_RATE)});
-	skip30sButton.on("click", function(){seek(playerPosition+30*SAMPLE_RATE)});
+	prev5sButton.on("click", function(){seek(playerPosition-5*sample_rate)});
+	prev30sButton.on("click", function(){seek(playerPosition-30*sample_rate)});
+	skip5sButton.on("click", function(){seek(playerPosition+5*sample_rate)});
+	skip30sButton.on("click", function(){seek(playerPosition+30*sample_rate)});
 
 	textArea.on('keydown', null, 'ctrl+j', function(evt){
 		evt.stopPropagation();
@@ -392,22 +411,22 @@ $(document).ready(function(){
 	textArea.on('keydown', null, 'ctrl+u', function(evt){
 		evt.stopPropagation();
 		evt.preventDefault();
-		seek(playerPosition-5*SAMPLE_RATE)
+		seek(playerPosition-5*sample_rate)
 	});
 	textArea.on('keydown', null, 'ctrl+i', function(evt){
 		evt.stopPropagation();
 		evt.preventDefault();
-		seek(playerPosition+5*SAMPLE_RATE);
+		seek(playerPosition+5*sample_rate);
 	});
 	textArea.on('keydown', null, 'ctrl+o', function(evt){
 		evt.stopPropagation();
 		evt.preventDefault();
-		seek(playerPosition+30*SAMPLE_RATE);
+		seek(playerPosition+30*sample_rate);
 	});
 	textArea.on('keydown', null, 'ctrl+y', function(evt){
 		evt.stopPropagation();
 		evt.preventDefault();
-		seek(playerPosition-30*SAMPLE_RATE);
+		seek(playerPosition-30*sample_rate);
 	});
 	textArea.on('keydown', null, 'ctrl+p', function(evt){
 		evt.stopPropagation();
