@@ -52,7 +52,7 @@ $(document).ready(function(){
 		bufferStartPosition = 0;
 		file = event.target.files[0];
 		scrubBar.slider( "option", "value", 0 );
-		timestamp.val(0);
+		updateTimestamp(0);
 		
 		if (file != null && file.size > 0)
 		{
@@ -114,7 +114,7 @@ $(document).ready(function(){
 		playerPosition = 0;
 		bufferStartPosition = 0;
 		scrubBar.slider( "option", "value", playerPosition);
-		timestamp.val(playerPosition);
+		updateTimestamp(playerPosition);
 		load(playerPosition);
 		buffer();
 	};
@@ -176,7 +176,7 @@ $(document).ready(function(){
 			playerPosition = file.size/SAMPLE_SIZE-1;
 		bufferStartPosition = playerPosition;
 		scrubBar.slider( "option", "value", playerPosition);
-		timestamp.val(playerPosition);
+		updateTimestamp(playerPosition);
 		load(playerPosition);
 		buffer();
 		console.log(playerPosition);
@@ -326,7 +326,7 @@ $(document).ready(function(){
 			timestamp.prop('disabled',true);
 			
 			scrubBar.slider( "option", "value", 0 );
-			timestamp.val(0);
+			updateTimestamp(0);
 		}
 		else
 		{
@@ -344,7 +344,7 @@ $(document).ready(function(){
 				{
 					playerPosition = Math.round((context.currentTime - audioStartPosition)*SAMPLE_RATE);
 					scrubBar.slider( "option", "value", playerPosition );
-					timestamp.val(playerPosition);
+					updateTimestamp(playerPosition);
 				}
 			}
 			else
@@ -356,7 +356,15 @@ $(document).ready(function(){
 		}
 	};
 	
+	function updateTimestamp(position)
+	{
+		var ms = ('000' + Math.floor((position/SAMPLE_RATE*1000)%1000)).slice(-3);
+		var secs = ('00'+Math.floor((position/SAMPLE_RATE)%60)).slice(-2);
+		var mins = ('00'+Math.floor((position/SAMPLE_RATE/60)%60)).slice(-2);
+		var hours = Math.floor((position/SAMPLE_RATE/3600));
 
+		timestamp.val(hours + ":" + mins + ":" + secs + "." + ms);
+	}
 	
 	fileSelector.on("click", haltAudio);
 	fileSelector.on("change", openFile);
@@ -413,6 +421,7 @@ $(document).ready(function(){
 	scrubBar.slider({
 		range: "min",
 		start: seeking,
+		slide: function(){updateTimestamp(scrubBar.slider( "option", "value" ))},
 		stop: function(){seek(scrubBar.slider( "option", "value" ))}
 	});
 	
